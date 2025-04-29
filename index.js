@@ -53,24 +53,38 @@ app.delete("/api/persons/:id", (request, response) => {
   response.status(204).end();
 });
 
-app.post("/api/persons", (request, response) => {
-  const body = request.body;
+const newId = Math.floor(Math.random() * 1000000); // Generate a random ID
 
-  if (!body.name || !body.number) {
+const isUniqueName = (name) => {
+  return persons.find((person) => person.name === name) === undefined;
+};
+
+app.post("/api/persons", (request, response) => {
+  if (!request.body.name) {
     return response.status(400).json({
-      error: "content missing",
+      error: "The name is missing",
     });
   }
 
-  const newId = Math.floor(Math.random() * 1000000); // Generate a random ID
-  const person = {
-    id: newId.toString(),
-    name: body.name,
-    number: body.number,
-  };
+  if (!request.body.number) {
+    return response.status(400).json({
+      error: "The number is missing",
+    });
+  }
 
-  persons = persons.concat(person);
-  response.json(person);
+  if (isUniqueName(request.body.name)) {
+    const person = {
+      id: newId.toString(),
+      name: request.body.name,
+      number: request.body.number,
+    };
+    persons = persons.concat(person);
+    response.json(person);
+  } else {
+    return response.status(400).json({
+      error: "The name must be unique",
+    });
+  }
 });
 
 const PORT = 3001;
