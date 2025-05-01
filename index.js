@@ -1,8 +1,10 @@
-import express, { request, response } from "express";
-import morgan from "morgan";
+const express = require("express");
 const app = express();
+const morgan = require("morgan");
+const cors = require("cors");
 
 app.use(express.json());
+app.use(cors());
 
 morgan.token("post", (req) => {
   return req.method === "POST" ? JSON.stringify(req.body) : " ";
