@@ -1,7 +1,10 @@
+require("dotenv").config();
+
 const express = require("express");
 const app = express();
 const morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person.js");
 
 app.use(express.json());
 app.use(cors());
@@ -39,7 +42,9 @@ let persons = [
 ];
 
 app.get("/api/persons", (request, response) => {
-  response.json(persons);
+  Person.find({}).then((persons) => {
+    response.json(persons);
+  });
 });
 
 app.get("/info", (request, response) => {
@@ -65,38 +70,39 @@ app.delete("/api/persons/:id", (request, response) => {
   response.status(204).end();
 });
 
-const newId = Math.floor(Math.random() * 1000000); // Generate a random ID
-
-const isUniqueName = (name) => {
-  return persons.find((person) => person.name === name) === undefined;
-};
-
 app.post("/api/persons", (request, response) => {
-  if (!request.body.name) {
+  const { name, number } = request.body;
+
+  if (!name && !number) {
     return response.status(400).json({
-      error: "The name is missing",
+      error: "name and number missing",
     });
   }
 
-  if (!request.body.number) {
+  if (!name) {
     return response.status(400).json({
-      error: "The number is missing",
+      error: "name missing",
     });
   }
 
-  if (isUniqueName(request.body.name)) {
-    const person = {
-      id: newId.toString(),
-      name: request.body.name,
-      number: request.body.number,
-    };
-    persons = persons.concat(person);
-    response.json(person);
-  } else {
+  if (!number) {
     return response.status(400).json({
-      error: "The name must be unique",
+      error: "number missing",
     });
   }
+
+  const person = new Person({
+    name,
+    number,
+  });
+  person
+    .save()
+    .then((savedPerson) => {
+      response.json(savedPerson);
+    })
+    .catch((error) => {
+      next(error);
+    });
 });
 
 const PORT = 3001;
