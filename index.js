@@ -64,10 +64,21 @@ app.get("/api/persons/:id", (request, response) => {
   }
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", async (request, response) => {
   const id = request.params.id;
-  persons = persons.filter((person) => person.id !== id);
-  response.status(204).end();
+
+  try {
+    const result = await Person.findByIdAndDelete(id);
+
+    if (!result) {
+      return response.status(404).json({ error: "Person not found" });
+    }
+
+    response.status(204).end();
+  } catch (error) {
+    console.error("Error deleting person:", error);
+    response.status(500).json({ error: "Server error" });
+  }
 });
 
 app.post("/api/persons", (request, response) => {
