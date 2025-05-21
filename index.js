@@ -4,7 +4,7 @@ const express = require("express");
 const app = express();
 const morgan = require("morgan");
 const cors = require("cors");
-const Person = require("./models/person.js");
+const Person = require("./models/person.js"); // Assuming your Mongoose model is here
 
 app.use(express.json());
 app.use(cors());
@@ -18,9 +18,6 @@ app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :post"),
 );
 
-const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: "Unknown endpoint" });
-};
 const errorHandler = (err, req, res, next) => {
   console.error("Error name:", err.name);
   console.error("Error message:", err.message);
@@ -29,24 +26,36 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ error: "Unknown id" });
   } else if (err.name === "ValidationError") {
     return res.status(400).json({ error: err.message });
+  } else if (err.name === "MongoServerError" && err.code === 11000) {
+    return res
+      .status(400)
+      .json({ error: "Name must be unique or other unique field violation." });
   }
 
   return res.status(500).json({ error: "Internal server error" });
 };
 
-app.get("/api/persons", (request, response) => {
-  Person.find({}).then((persons) => {
-    response.json(persons);
-  });
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "Unknown endpoint" });
+};
+
+app.get("/api/persons", (request, response, next) => {
+  Person.find({})
+    .then((persons) => {
+      response.json(persons);
+    })
+    .catch((error) => next(error)); // Pass errors to the error handler
 });
 
-app.get("/info", (request, response) => {
-  Person.find({}).then((persons) => {
-    response.send(
-      `<p>Phonebook has info for ${persons.length} people</p>
-      <p>${new Date()}</p>`,
-    );
-  });
+app.get("/info", (request, response, next) => {
+  Person.countDocuments({}) // More efficient way to count documents
+    .then((count) => {
+      response.send(
+        `<p>Phonebook has info for ${count} people</p>
+         <p>${new Date()}</p>`,
+      );
+    })
+    .catch((error) => next(error));
 });
 
 app.get("/api/persons/:id", (request, response, next) => {
@@ -55,7 +64,7 @@ app.get("/api/persons/:id", (request, response, next) => {
       if (person) {
         response.json(person);
       } else {
-        response.status(404).end();
+        response.status(404).json({ error: "Person not found with this ID" });
       }
     })
     .catch((error) => next(error));
@@ -82,19 +91,17 @@ app.post("/api/persons", (request, response, next) => {
 
   if (!name && !number) {
     return response.status(400).json({
-      error: "name and number missing",
+      error: "name and number are missing",
     });
   }
-
   if (!name) {
     return response.status(400).json({
-      error: "name missing",
+      error: "name is missing",
     });
   }
-
   if (!number) {
     return response.status(400).json({
-      error: "number missing",
+      error: "number is missing",
     });
   }
 
@@ -102,20 +109,48 @@ app.post("/api/persons", (request, response, next) => {
     name,
     number,
   });
+
   person
     .save()
     .then((savedPerson) => {
-      response.json(savedPerson);
+      response.status(201).json(savedPerson);
     })
     .catch((error) => {
-      next(error);
+      next(error); //
     });
 });
 
-app.use(errorHandler);
-app.use(unknownEndpoint);
+app.put("/api/persons/:id", (request, response, next) => {
+  const { number } = request.body;
+  const id = request.params.id;
 
-const PORT = 3001;
+  if (!number) {
+    return response.status(400).json({ error: "Number is missing" });
+  }
+
+  const personToUpdate = {
+    number: number,
+  };
+
+  Person.findByIdAndUpdate(id, personToUpdate, {
+    new: true,
+    runValidators: true,
+    context: "query",
+  })
+    .then((updatedPerson) => {
+      if (updatedPerson) {
+        response.json(updatedPerson);
+      } else {
+        response.status(404).json({ error: `Person with ID ${id} not found.` });
+      }
+    })
+    .catch((error) => next(error));
+});
+
+app.use(unknownEndpoint);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
