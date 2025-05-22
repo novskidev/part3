@@ -44,11 +44,11 @@ app.get("/api/persons", (request, response, next) => {
     .then((persons) => {
       response.json(persons);
     })
-    .catch((error) => next(error)); // Pass errors to the error handler
+    .catch((error) => next(error)); 
 });
 
 app.get("/info", (request, response, next) => {
-  Person.countDocuments({}) // More efficient way to count documents
+  Person.countDocuments({}) 
     .then((count) => {
       response.send(
         `<p>Phonebook has info for ${count} people</p>
@@ -116,7 +116,7 @@ app.post("/api/persons", (request, response, next) => {
       response.status(201).json(savedPerson);
     })
     .catch((error) => {
-      next(error); //
+      next(error); 
     });
 });
 
